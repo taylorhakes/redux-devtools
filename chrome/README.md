@@ -7,7 +7,7 @@ A better README is coming
 ### Using Extension
 
 ##### Setup your app
-Expose store at window.__redux__
+
 
 ```js
 const finalCreateStore = compose(
@@ -22,7 +22,7 @@ const finalCreateStore = compose(
 const reducer = combineReducers(reducers);
 const store = finalCreateStore(reducer);
 
-// Needed for extension
+// Needed for extension. Expose store at window.__redux__
 window.__redux__ = store;
 ```
 
