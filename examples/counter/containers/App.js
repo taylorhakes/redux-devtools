@@ -17,6 +17,8 @@ const finalCreateStore = compose(
 const reducer = combineReducers(reducers);
 const store = finalCreateStore(reducer);
 
+window.__redux__ = store;
+
 export default class App extends Component {
   render() {
     return (

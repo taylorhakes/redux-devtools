@@ -2,9 +2,8 @@ var path = require('path');
 var webpack = require('webpack');
 
 module.exports = {
-	devtool: 'eval',
 	entry: [
-		'./src/devpanel.js'
+		'./src/devpanel/index.js'
 	],
 	output: {
 		path: path.join(__dirname, 'dist'),
