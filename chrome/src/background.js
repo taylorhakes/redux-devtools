@@ -1,3 +1,5 @@
+'use strict';
+
 var connections = {};
 var cache = [];
 
@@ -31,7 +33,7 @@ chrome.runtime.onMessage.addListener(function (request, sender) {
 
 	// Messages from content scripts should have sender.tab set
 	if (sender.tab) {
-		const tabId = sender.tab.id;
+		var tabId = sender.tab.id;
 		if (tabId in connections) {
 			connections[ tabId ].postMessage(request);
 		} else {

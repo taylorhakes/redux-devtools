@@ -1,3 +1,5 @@
+'use strict';
+
 (function() {
 	var TIMEOUT = 30000;
 	var ACTION = 'ACTION';
