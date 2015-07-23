@@ -19733,7 +19733,8 @@
 	  COMMIT: 'COMMIT',
 	  SWEEP: 'SWEEP',
 	  TOGGLE_ACTION: 'TOGGLE_ACTION',
-	  JUMP_TO_STATE: 'JUMP_TO_STATE'
+	  JUMP_TO_STATE: 'JUMP_TO_STATE',
+	  SET_MONITOR_STATE: 'SET_MONITOR_STATE'
 	};
 
 	var INIT_ACTION = {
@@ -19807,7 +19808,10 @@
 	    committedState: initialState,
 	    stagedActions: [INIT_ACTION],
 	    skippedActions: {},
-	    currentStateIndex: 0
+	    currentStateIndex: 0,
+	    monitorState: {
+	      isVisible: true
+	    }
 	  };
 
 	  /**
@@ -19820,6 +19824,7 @@
 	    var skippedActions = liftedState.skippedActions;
 	    var computedStates = liftedState.computedStates;
 	    var currentStateIndex = liftedState.currentStateIndex;
+	    var monitorState = liftedState.monitorState;
 
 	    switch (liftedAction.type) {
 	      case ActionTypes.RESET:
@@ -19853,12 +19858,13 @@
 	        currentStateIndex = Math.max(currentStateIndex, stagedActions.length - 1);
 	        break;
 	      case ActionTypes.PERFORM_ACTION:
-	        var action = liftedAction.action;
-
 	        if (currentStateIndex === stagedActions.length - 1) {
 	          currentStateIndex++;
 	        }
-	        stagedActions = [].concat(stagedActions, [action]);
+	        stagedActions = [].concat(stagedActions, [liftedAction.action]);
+	        break;
+	      case ActionTypes.SET_MONITOR_STATE:
+	        monitorState = liftedAction.monitorState;
 	        break;
 	      default:
 	        break;
@@ -19871,7 +19877,8 @@
 	      stagedActions: stagedActions,
 	      skippedActions: skippedActions,
 	      computedStates: computedStates,
-	      currentStateIndex: currentStateIndex
+	      currentStateIndex: currentStateIndex,
+	      monitorState: monitorState
 	    };
 	  };
 	}
@@ -19898,7 +19905,7 @@
 	/**
 	 * Unlifts the DevTools store to act like the app's store.
 	 */
-	function unliftStore(liftedStore) {
+	function unliftStore(liftedStore, reducer) {
 	  return _extends({}, liftedStore, {
 	    devToolsStore: liftedStore,
 	    dispatch: function dispatch(action) {
@@ -19907,6 +19914,12 @@
 	    },
 	    getState: function getState() {
 	      return unliftState(liftedStore.getState());
+	    },
+	    getReducer: function getReducer() {
+	      return reducer;
+	    },
+	    replaceReducer: function replaceReducer(nextReducer) {
+	      liftedStore.replaceReducer(liftReducer(nextReducer));
 	    }
 	  });
 	}
@@ -19932,6 +19945,9 @@
 	  },
 	  jumpToState: function jumpToState(index) {
 	    return { type: ActionTypes.JUMP_TO_STATE, index: index };
+	  },
+	  setMonitorState: function setMonitorState(monitorState) {
+	    return { type: ActionTypes.SET_MONITOR_STATE, monitorState: monitorState };
 	  }
 	};
 
@@ -19945,7 +19961,7 @@
 	    return function (reducer, initialState) {
 	      var liftedReducer = liftReducer(reducer, initialState);
 	      var liftedStore = next(liftedReducer);
-	      var store = unliftStore(liftedStore);
+	      var store = unliftStore(liftedStore, reducer);
 	      return store;
 	    };
 	  };
@@ -19958,6 +19974,16 @@
 	'use strict';
 
 	exports.__esModule = true;
+
+	var _extends = Object.assign || function (target) {
+	  for (var i = 1; i < arguments.length; i++) {
+	    var source = arguments[i];for (var key in source) {
+	      if (Object.prototype.hasOwnProperty.call(source, key)) {
+	        target[key] = source[key];
+	      }
+	    }
+	  }return target;
+	};
 
 	var _createClass = (function () {
 	  function defineProperties(target, props) {
@@ -19990,11 +20016,16 @@
 	var LogMonitor = (function () {
 	  function LogMonitor() {
 	    _classCallCheck(this, LogMonitor);
+
+	    window.addEventListener('keydown', this.handleKeyPress.bind(this));
 	  }
 
 	  LogMonitor.prototype.componentWillReceiveProps = function componentWillReceiveProps(nextProps) {
-	    if (this.props.stagedActions.length < nextProps.stagedActions.length) {
-	      var scrollableNode = _react.findDOMNode(this).parentElement;
+	    var node = _react.findDOMNode(this);
+	    if (!node) {
+	      this.scrollDown = true;
+	    } else if (this.props.stagedActions.length < nextProps.stagedActions.length) {
+	      var scrollableNode = node.parentElement;
 	      var scrollTop = scrollableNode.scrollTop;
 	      var offsetHeight = scrollableNode.offsetHeight;
 	      var scrollHeight = scrollableNode.scrollHeight;
@@ -20005,9 +20036,14 @@
 	    }
 	  };
 
-	  LogMonitor.prototype.componentDidUpdate = function componentDidUpdate(prevProps) {
-	    if (prevProps.stagedActions.length < this.props.stagedActions.length && this.scrollDown) {
-	      var scrollableNode = _react.findDOMNode(this).parentElement;
+	  LogMonitor.prototype.componentDidUpdate = function componentDidUpdate() {
+	    var node = _react.findDOMNode(this);
+	    if (!node) {
+	      return;
+	    }
+
+	    if (this.scrollDown) {
+	      var scrollableNode = node.parentElement;
 	      var offsetHeight = scrollableNode.offsetHeight;
 	      var scrollHeight = scrollableNode.scrollHeight;
 
@@ -20036,13 +20072,30 @@
 	    this.props.reset();
 	  };
 
+	  LogMonitor.prototype.handleKeyPress = function handleKeyPress(event) {
+	    var monitorState = this.props.monitorState;
+
+	    if (event.ctrlKey && event.keyCode === 72) {
+	      // Ctrl+H
+	      event.preventDefault();
+	      this.props.setMonitorState(_extends({}, monitorState, {
+	        isVisible: !monitorState.isVisible
+	      }));
+	    }
+	  };
+
 	  LogMonitor.prototype.render = function render() {
 	    var elements = [];
 	    var _props = this.props;
+	    var monitorState = _props.monitorState;
 	    var skippedActions = _props.skippedActions;
 	    var stagedActions = _props.stagedActions;
 	    var computedStates = _props.computedStates;
 	    var select = _props.select;
+
+	    if (!monitorState.isVisible) {
+	      return null;
+	    }
 
 	    for (var i = 0; i < stagedActions.length; i++) {
 	      var action = stagedActions[i];
@@ -20062,9 +20115,12 @@
 
 	    return _react2['default'].createElement('div', { style: {
 	        fontFamily: 'monospace',
-	        position: 'relative'
-	      } }, _react2['default'].createElement('div', null, _react2['default'].createElement('a', { onClick: this.handleReset.bind(this),
-	      style: { textDecoration: 'underline', cursor: 'hand' } }, 'Reset')), elements, _react2['default'].createElement('div', null, computedStates.length > 1 && _react2['default'].createElement('a', { onClick: this.handleRollback.bind(this),
+	        position: 'relative',
+	        padding: '1rem'
+	      } }, _react2['default'].createElement('div', null, _react2['default'].createElement('div', { style: {
+	        paddingBottom: '.5rem'
+	      } }, _react2['default'].createElement('small', null, 'Press Ctrl+H to hide.')), _react2['default'].createElement('div', null, _react2['default'].createElement('a', { onClick: this.handleReset.bind(this),
+	      style: { textDecoration: 'underline', cursor: 'hand' } }, _react2['default'].createElement('small', null, 'Reset')))), elements, _react2['default'].createElement('div', null, computedStates.length > 1 && _react2['default'].createElement('a', { onClick: this.handleRollback.bind(this),
 	      style: { textDecoration: 'underline', cursor: 'hand' } }, 'Rollback'), Object.keys(skippedActions).some(function (key) {
 	      return skippedActions[key];
 	    }) && _react2['default'].createElement('span', null, ' • ', _react2['default'].createElement('a', { onClick: this.handleSweep.bind(this),
@@ -20077,6 +20133,7 @@
 	    value: {
 	      computedStates: _react.PropTypes.array.isRequired,
 	      currentStateIndex: _react.PropTypes.number.isRequired,
+	      monitorState: _react.PropTypes.object.isRequired,
 	      stagedActions: _react.PropTypes.array.isRequired,
 	      skippedActions: _react.PropTypes.object.isRequired,
 	      reset: _react.PropTypes.func.isRequired,
@@ -20085,6 +20142,7 @@
 	      sweep: _react.PropTypes.func.isRequired,
 	      toggleAction: _react.PropTypes.func.isRequired,
 	      jumpToState: _react.PropTypes.func.isRequired,
+	      setMonitorState: _react.PropTypes.func.isRequired,
 	      select: _react.PropTypes.func.isRequired
 	    },
 	    enumerable: true
@@ -20093,7 +20151,8 @@
 	    value: {
 	      select: function select(state) {
 	        return state;
-	      }
+	      },
+	      monitorState: { isVisible: true }
 	    },
 	    enumerable: true
 	  }]);
@@ -20265,6 +20324,16 @@
 
 	exports.__esModule = true;
 
+	var _extends = Object.assign || function (target) {
+	  for (var i = 1; i < arguments.length; i++) {
+	    var source = arguments[i];for (var key in source) {
+	      if (Object.prototype.hasOwnProperty.call(source, key)) {
+	        target[key] = source[key];
+	      }
+	    }
+	  }return target;
+	};
+
 	var _createClass = (function () {
 	  function defineProperties(target, props) {
 	    for (var i = 0; i < props.length; i++) {
@@ -20308,11 +20377,10 @@
 	    position: 'fixed',
 	    zIndex: 999,
 	    fontSize: 17,
-	    overflow: 'scroll',
+	    overflow: 'auto',
 	    opacity: 0.92,
 	    background: 'black',
 	    color: 'white',
-	    padding: '1em',
 	    left: left ? 0 : undefined,
 	    right: right ? 0 : undefined,
 	    top: top ? 0 : undefined,
@@ -20329,7 +20397,7 @@
 	  }
 
 	  DebugPanel.prototype.render = function render() {
-	    return _react2['default'].createElement('div', { style: this.props.getStyle(this.props) }, this.props.children);
+	    return _react2['default'].createElement('div', { style: _extends({}, this.props.getStyle(this.props), this.props.style) }, this.props.children);
 	  };
 
 	  _createClass(DebugPanel, null, [{
