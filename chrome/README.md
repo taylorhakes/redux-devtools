@@ -3,6 +3,7 @@ Redux DevTools Chrome Extension
 
 A better README is coming
 
+<img src='http://i.imgur.com/jvTykuO.png' width='700'>
 
 ### Using Extension
 
