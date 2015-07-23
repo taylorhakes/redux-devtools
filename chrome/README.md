@@ -22,7 +22,7 @@ const finalCreateStore = compose(
 const reducer = combineReducers(reducers);
 const store = finalCreateStore(reducer);
 
-// Needed for extension. Expose store at window.__redux__
+// Needed for extension. Expose store at window.__redux__ (2 underscores)
 window.__redux__ = store;
 ```
 
