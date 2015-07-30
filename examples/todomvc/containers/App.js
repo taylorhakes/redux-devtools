@@ -3,11 +3,13 @@ import TodoApp from './TodoApp';
 import { createStore, combineReducers, compose } from 'redux';
 import { devTools, persistState } from 'redux-devtools';
 import { DevTools, DebugPanel, LogMonitor } from 'redux-devtools/lib/react';
+import { localState } from '../LocalState';
 import { Provider } from 'react-redux';
 import * as reducers from '../reducers';
 
 const finalCreateStore = compose(
-  devTools(),
+    localState,
+    devTools(),
   persistState(window.location.href.match(/[?&]debug_session=([^&]+)\b/)),
   createStore
 );

@@ -1,6 +1,26 @@
 import React, { Component, PropTypes } from 'react';
 import classnames from 'classnames';
+import localText from '../reducers/localText';
+import { changeTodo } from '../actions/TodoActions';
+import { local } from '../LocalState';
 
+@local({
+    keyFunc(props) {
+        if (props.stateKey) {
+            return props.stateKey;
+        }
+
+        return 'textInput';
+    },
+    reducers:  {
+        text: localText
+    },
+    getInitialState(props) {
+        return {
+            text: props.defaultText || ''
+        }
+    }
+})
 export default class TodoTextInput extends Component {
   static propTypes = {
     onSave: PropTypes.func.isRequired,
@@ -12,9 +32,6 @@ export default class TodoTextInput extends Component {
 
   constructor(props, context) {
     super(props, context);
-    this.state = {
-      text: this.props.text || ''
-    };
   }
 
   handleSubmit(e) {
@@ -22,13 +39,13 @@ export default class TodoTextInput extends Component {
     if (e.which === 13) {
       this.props.onSave(text);
       if (this.props.newTodo) {
-        this.setState({ text: '' });
+          this.props.dispatch(changeTodo(''));
       }
     }
   }
 
   handleChange(e) {
-    this.setState({ text: e.target.value });
+    this.props.dispatch(changeTodo(e.target.value));
   }
 
   handleBlur(e) {
@@ -46,7 +63,7 @@ export default class TodoTextInput extends Component {
              type='text'
              placeholder={this.props.placeholder}
              autoFocus='true'
-             value={this.state.text}
+             value={this.props.text}
              onBlur={::this.handleBlur}
              onChange={::this.handleChange}
              onKeyDown={::this.handleSubmit} />

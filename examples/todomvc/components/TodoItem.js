@@ -1,7 +1,18 @@
 import React, { Component, PropTypes } from 'react';
 import classnames from 'classnames';
 import TodoTextInput from './TodoTextInput';
+import editing from '../reducers/editing';
+import { editModeTodo } from '../actions/TodoActions';
+import { local } from '../LocalState';
 
+@local({
+  keyFunc(props) {
+    return 'todo-' +props.todo.id;
+  },
+  reducers:  {
+    isEditing: editing
+  }
+})
 export default class TodoItem extends Component {
   static propTypes = {
     todo: PropTypes.object.isRequired,
@@ -12,13 +23,14 @@ export default class TodoItem extends Component {
 
   constructor(props, context) {
     super(props, context);
-    this.state = {
-      editing: false
-    };
+  }
+
+  editModeTodo(isEditing) {
+    this.props.dispatch(editModeTodo(isEditing));
   }
 
   handleDoubleClick() {
-    this.setState({ editing: true });
+    this.editModeTodo(true);
   }
 
   handleSave(id, text) {
@@ -27,17 +39,17 @@ export default class TodoItem extends Component {
     } else {
       this.props.editTodo(id, text);
     }
-    this.setState({ editing: false });
+    this.editModeTodo(false);
   }
 
   render() {
     const {todo, markTodo, deleteTodo} = this.props;
 
     let element;
-    if (this.state.editing) {
+    if (this.props.isEditing) {
       element = (
-        <TodoTextInput text={todo.text}
-                       editing={this.state.editing}
+        <TodoTextInput defaultText={todo.text}
+                       editing={this.props.isEditing}
                        onSave={(text) => this.handleSave(todo.id, text)} />
       );
     } else {
@@ -59,7 +71,7 @@ export default class TodoItem extends Component {
     return (
       <li className={classnames({
         completed: todo.marked,
-        editing: this.state.editing
+        editing: this.props.isEditing
       })}>
         {element}
       </li>

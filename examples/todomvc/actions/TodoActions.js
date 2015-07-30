@@ -40,3 +40,17 @@ export function clearMarked() {
     type: types.CLEAR_MARKED
   };
 }
+
+export function editModeTodo(isEditing) {
+  return {
+    type: types.EDIT_MODE_TODO,
+    isEditing
+  }
+}
+
+export function changeTodo(text) {
+  return {
+    type: types.CHANGE_TODO,
+    text
+  }
+}
