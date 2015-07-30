@@ -1,6 +1,13 @@
 import React, { Component, PropTypes } from 'react';
 import combineReducers from 'redux/lib/utils/combineReducers';
 
+
+const LOCAL = '@@local';
+const LOCAL_MOUNT = '@@localMount';
+const LOCAL_UNMOUNT = '@@localUnmount';
+const LOCAL_INIT = '@@localInit';
+const LOCAL_KEY = '__local';
+
 class LocalComponent extends Component {
 	static contextTypes = {
 		store: PropTypes.shape({
@@ -23,7 +30,7 @@ class LocalComponent extends Component {
 		this.unsubscribe = this.context.store.localState.subscribe({
 			key: this.props.keyFunc(this.props),
 			reducers: this.props.reducers,
-			defaultState: this.props.getInitialState ? this.props.getInitialState(this.props) : undefined,
+			initialState: this.props.getInitialState ? this.props.getInitialState(this.props) : undefined,
 			onChange: ::this.handleChange
 		});
 		this.handleChange();
@@ -39,7 +46,7 @@ class LocalComponent extends Component {
 
 	dispatchLocal(action) {
 		this.context.store.dispatch({
-			type: '@@local',
+			type: LOCAL,
 			key: this.props.keyFunc(this.props),
 			data: action
 		});
@@ -71,10 +78,10 @@ export function local(info) {
 
 
 export function localState(next) {
-	var stateLocal = {},
-		stateSubscribers = {};
+	let stateSubscribers = {},
+		store;
 
-	function subscribe({ key, reducers, onChange, defaultState }) {
+	function subscribe({ key, reducers, onChange, initialState }) {
 		if (!stateSubscribers[key]) {
 			stateSubscribers[key] = {
 				reducersObj: {},
@@ -86,29 +93,41 @@ export function localState(next) {
 		stateSubscribers[key].subscribers.push(onChange);
 		stateSubscribers[key].reducersObj = { ...stateSubscribers[key].reducersObj, ...reducers };
 		stateSubscribers[key].reducer = combineReducers(stateSubscribers[key].reducersObj);
-		stateLocal[key] = typeof defaultState !== 'undefined' ? defaultState : stateSubscribers[key].reducer(undefined, { type: '@@localInit' });
+
+		if (!store.getState()[LOCAL_KEY][key]) {
+			store.dispatch({ type: LOCAL, subType: LOCAL_MOUNT, state: initialState, key });
+		}
 
 		return unsubscribe.bind(null, key, onChange);
 	}
 
 	function newReducer(reducer) {
 		return (state, action) => {
-			var state = reducer(state, action);
-			if (action.type === '@@local') {
-				if (stateSubscribers[ action.key ]) {
-					stateLocal[action.key] = stateSubscribers[ action.key ].reducer(stateLocal[action.key], action.data);
-					stateSubscribers[ action.key ].subscribers.forEach((fn) => fn());
+			let newLocal = (state || {}).__local || {};
+			const newState = reducer(state, action);
+			if (action.type === LOCAL && stateSubscribers[ action.key ]) {
+				newLocal = {...newLocal};
+				if (action.subType === LOCAL_MOUNT) {
+					newLocal[action.key] = action.state ? action.state : stateSubscribers[action.key].reducer(undefined, { type: LOCAL_INIT });
+				} else if (action.subType === LOCAL_UNMOUNT) {
+					delete newLocal[action.key];
+				} else {
+					newLocal[action.key] = stateSubscribers[ action.key ].reducer(newLocal[action.key], action.data);
 				}
+				setTimeout(() => {
+					stateSubscribers[ action.key ].subscribers.forEach((fn) => fn());
+				});
+
 			}
-			state.__local = stateLocal;
-			return state;
+			newState[LOCAL_KEY] = newLocal;
+			return newState;
 		}
 	}
 
 	function unsubscribe(key, onChange) {
 		if (stateSubscribers[key].subscribers.length === 1) {
 			delete stateSubscribers[key];
-			delete stateLocal[key];
+			store.dispatch({ type: LOCAL, subType: LOCAL_UNMOUNT, key });
 			return;
 		}
 
@@ -116,13 +135,11 @@ export function localState(next) {
 	}
 
 	function getState(key) {
-		return stateLocal[key];
+		return store.getState()[LOCAL_KEY][key];
 	}
 
-
-
 	return function(reducer, initialState) {
-		const store = next(newReducer(reducer), initialState);
+		store = next(newReducer(reducer), initialState);
 
 		return {
 			...store,
