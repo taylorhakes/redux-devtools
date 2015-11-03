@@ -31,7 +31,7 @@ window.__redux__ = store;
 ##### Installing the extension:
 
 ```
-git clone https://github.com/gaearon/redux-devtools.git
+git clone -b chrome-devtools https://github.com/taylorhakes/redux-devtools.git
 cd redux-devtools/chrome
 npm install
 npm build
